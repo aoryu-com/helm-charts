@@ -1,0 +1,44 @@
+name: Publish chart to GHCR
+
+on:
+  push:
+    tags:
+      - "*-v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+
+      - name: Resolve chart from tag
+        id: chart
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          name="${tag%-v*}"
+          version="${tag##*-v}"
+          if [ ! -d "charts/${name}" ]; then
+            echo "no chart at charts/${name} for tag ${tag}" >&2
+            exit 1
+          fi
+          chart_version="$(yq -r '.version' "charts/${name}/Chart.yaml")"
+          if [ "${chart_version}" != "${version}" ]; then
+            echo "tag version ${version} does not match Chart.yaml version ${chart_version}" >&2
+            exit 1
+          fi
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Package chart
+        run: helm package "charts/${{ steps.chart.outputs.name }}"
+
+      - name: Push chart
+        run: helm push "${{ steps.chart.outputs.name }}"-*.tgz "oci://ghcr.io/${{ github.repository_owner }}/charts"
