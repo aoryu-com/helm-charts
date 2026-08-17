@@ -1,0 +1,35 @@
+WAHA has been deployed as {{ include "waha.fullname" . }} in namespace {{ .Release.Namespace }}.
+
+IMPORTANT: this chart deliberately keeps replicaCount at 1. WAHA holds a
+single stateful WhatsApp session and cannot be horizontally scaled the way
+stateless web apps are. For additional WhatsApp numbers, install this chart
+again under a different release name with its own session PVC.
+
+{{- if .Values.ingress.enabled }}
+
+Your dashboard should be reachable at:
+  http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}/dashboard
+
+{{- else }}
+
+No Ingress is enabled. To reach WAHA, port-forward the Service:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "waha.fullname" . }} 3000:{{ .Values.service.port }}
+Then open:
+  http://localhost:3000/dashboard
+
+{{- end }}
+
+Log in with:
+{{- if .Values.secret.existingSecret }}
+  Credentials are stored in Secret "{{ .Values.secret.existingSecret }}" (WAHA_DASHBOARD_USERNAME / WAHA_DASHBOARD_PASSWORD).
+{{- else }}
+  Username: {{ .Values.secret.dashboardUsername }}
+  Password: <the value you supplied via secret.dashboardPassword>
+{{- end }}
+
+Check pod status and logs:
+  kubectl -n {{ .Release.Namespace }} get pods -l {{ include "waha.selectorLabels" . | replace "\n" "," }}
+  kubectl -n {{ .Release.Namespace }} logs -f deploy/{{ include "waha.fullname" . }}
+
+Session data persists on PVC "{{ include "waha.pvcName" . }}". Deleting this
+PVC will require re-scanning the WhatsApp QR code for every session.

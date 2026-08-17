@@ -1,0 +1,17 @@
+{{- if and .Values.session.enabled (not .Values.session.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "waha.pvcName" . }}
+  labels:
+    {{- include "waha.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.session.accessMode }}
+  {{- if .Values.session.storageClassName }}
+  storageClassName: {{ .Values.session.storageClassName }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.session.size }}
+{{- end }}

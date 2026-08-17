@@ -1,0 +1,132 @@
+# -- Default values for the waha chart.
+# WAHA is stateful: one running pod == one live WhatsApp session lock.
+# Do NOT scale replicaCount above 1. To run multiple WhatsApp numbers,
+# install this chart multiple times with different `nameOverride`/`fullnameOverride`
+# and separate `session.existingClaim` values instead.
+
+replicaCount: 1
+
+image:
+  # -- Use devlikeapro/waha for Core, devlikeapro/waha-plus if you have a Plus license,
+  # or devlikeapro/waha:arm / devlikeapro/waha-plus:arm on ARM nodes.
+  repository: devlikeapro/waha
+  pullPolicy: IfNotPresent
+  # -- Pin an explicit tag in production, e.g. "2026.1.10". Empty uses appVersion/"latest".
+  tag: ""
+
+imagePullSecrets: []
+  # Needed only if you use devlikeapro/waha-plus, which is a private image.
+  # - name: waha-plus-registry-credentials
+
+nameOverride: ""
+fullnameOverride: ""
+
+# -- Deployment update strategy. Must remain Recreate: a RollingUpdate would
+# briefly run two pods contending for the same WhatsApp session lock.
+strategy:
+  type: Recreate
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+  # fsGroup: 1000
+
+securityContext: {}
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "36000"
+    # nginx.ingress.kubernetes.io/proxy-send-timeout: "36000"
+    # nginx.ingress.kubernetes.io/proxy-body-size: "0"
+  host: waha.example.com
+  tls:
+    enabled: false
+    secretName: waha-tls
+    # existingSecret: ""  # set to reuse a pre-provisioned TLS secret instead of cert-manager
+
+# -- WAHA configuration. These map 1:1 onto WAHA's documented environment
+# variables (see https://waha.devlike.pro/docs/how-to/config). Non-secret
+# values go here; put anything sensitive in `secretEnv` or `existingSecret` instead.
+env:
+  WHATSAPP_DEFAULT_ENGINE: "WEBJS"
+  WAHA_PRINT_QR: "False"
+  WAHA_LOG_FORMAT: "JSON"
+  # WAHA_BASE_URL should match your public ingress URL so callback/media links resolve
+  WAHA_BASE_URL: "https://waha.example.com"
+
+# -- Extra plain (non-secret) env vars as a list, for anything not covered above.
+extraEnv: []
+  # - name: WHATSAPP_RESTART_ALL_SESSIONS
+  #   value: "True"
+
+# -- Secret values. If `existingSecret` is set, this chart will NOT create a Secret
+# and will instead reference the named Secret you manage out-of-band (recommended
+# for production, e.g. sourced from Vault/External Secrets Operator/SealedSecrets).
+# The keys expected in either case: WAHA_API_KEY, WAHA_DASHBOARD_USERNAME,
+# WAHA_DASHBOARD_PASSWORD, WHATSAPP_SWAGGER_USERNAME, WHATSAPP_SWAGGER_PASSWORD.
+secret:
+  existingSecret: ""
+  # Only used when existingSecret is empty. Leave blank to be forced to set
+  # them explicitly at install time via --set or a values override file --
+  # deliberately no defaults here, per WAHA's own "do not use weak keys" warning.
+  apiKey: ""
+  dashboardUsername: "admin"
+  dashboardPassword: ""
+  swaggerUsername: "admin"
+  swaggerPassword: ""
+
+# -- Persistent storage for WhatsApp session/auth data (Chrome profile / NOWEB store).
+# Losing this volume means every session has to re-scan its QR code.
+session:
+  enabled: true
+  # existingClaim: ""   # set to reuse a pre-provisioned PVC instead of creating one
+  storageClassName: ""  # "" uses the cluster default StorageClass
+  accessMode: ReadWriteOnce
+  size: 5Gi
+  mountPath: /app/.sessions
+
+# -- /dev/shm sizing for the WEBJS (headless Chrome) engine. Kubernetes pods
+# default to a very small shared-memory allocation, which crashes Chrome under
+# real load. This mounts a memory-backed emptyDir at /dev/shm instead.
+dshm:
+  enabled: true
+  sizeLimit: 1Gi
+
+resources:
+  # WAHA's own docs state 2 CPU / 2GB RAM as a floor for a single active session.
+  requests:
+    cpu: "2"
+    memory: 2Gi
+  limits:
+    cpu: "4"
+    memory: 4Gi
+
+# -- Liveness/readiness probes against WAHA's health endpoint.
+probes:
+  enabled: true
+  path: /api/server/status
+  initialDelaySeconds: 30
+  periodSeconds: 15
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""

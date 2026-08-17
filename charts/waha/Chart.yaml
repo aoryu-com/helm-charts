@@ -1,0 +1,15 @@
+apiVersion: v2
+name: waha
+description: A Helm chart for deploying WAHA (WhatsApp HTTP API) on Kubernetes
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - whatsapp
+  - waha
+  - messaging
+home: https://waha.devlike.pro
+sources:
+  - https://github.com/devlikeapro/waha
+maintainers:
+  - name: your-team
