@@ -1,7 +1,43 @@
-# IDE resources
-.vscode
-.idea
-.devcontainer/
+# --- Helm ---
+# Packaged charts
+*.tgz
 
-.direnv/
-venv/
+# Helm dependency artifacts
+charts/*.tgz
+**/charts/*/charts/
+Chart.lock
+
+# Local values overrides (common convention for secrets/local config)
+values.local.yaml
+values.override.yaml
+values-local.yaml
+secrets.yaml
+
+# Helm debug/template output
+.helm/
+helm-debug/
+
+# --- IDE / Editor ---
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# --- Claude ---
+.claude/
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Misc build/temp ---
+*.log
+*.tmp
+tmp/
